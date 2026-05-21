@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -43,11 +44,19 @@ public class OrigamiPaperController : MonoBehaviour
     private Mesh _frontMesh;
     private Mesh _backMesh;
 
-    /// <summary>Always-flat reference positions used to reset the paper.</summary>
+    /// <summary>Always-flat reference positions used to classify fold regions.</summary>
     private Vector3[] _baseVertices;
 
     /// <summary>Accumulated vertex positions after all folds up to CurrentStep.</summary>
     private Vector3[] _currentVertices;
+
+    /// <summary>
+    /// Per-vertex normal in local space, updated analytically as each fold rotates it.
+    /// Starts as Vector3.up for every vertex (flat paper).
+    /// Kept separate from Unity's RecalculateNormals so that a 180° fold correctly
+    /// flips the normal downward, driving the right material to show on each face.
+    /// </summary>
+    private Vector3[] _currentNormals;
 
     /// <summary>
     /// Per-vertex Y-offset accumulated from paper thickness across folds.
@@ -125,12 +134,17 @@ public class OrigamiPaperController : MonoBehaviour
     {
         StopAllCoroutines();
         _isAnimating = false;
-        CurrentStep = 0;
+        CurrentStep  = 0;
 
         if (_baseVertices != null && _currentVertices != null)
         {
             Array.Copy(_baseVertices, _currentVertices, _baseVertices.Length);
             Array.Clear(_vertexHeightOffset, 0, _vertexHeightOffset.Length);
+
+            // Reset normals to the flat-paper direction.
+            for (int i = 0; i < _currentNormals.Length; i++)
+                _currentNormals[i] = Vector3.up;
+
             ApplyVerticesToMesh();
         }
 
@@ -146,13 +160,19 @@ public class OrigamiPaperController : MonoBehaviour
     {
         _frontMesh = PaperMeshGenerator.Generate(
             model.paperWidth, model.paperHeight,
-            model.subdivisionsX, model.subdivisionsY);
+            model.subdivisionsX, model.subdivisionsY,
+            model.steps);
 
         _meshFilter.mesh = _frontMesh;
 
-        _baseVertices = _frontMesh.vertices;
-        _currentVertices = (Vector3[])_baseVertices.Clone();
+        _baseVertices       = _frontMesh.vertices;
+        _currentVertices    = (Vector3[])_baseVertices.Clone();
         _vertexHeightOffset = new float[_baseVertices.Length];
+
+        // All normals start pointing straight up (paper is flat).
+        _currentNormals = new Vector3[_baseVertices.Length];
+        for (int i = 0; i < _currentNormals.Length; i++)
+            _currentNormals[i] = Vector3.up;
 
         if (backMeshFilter != null)
         {
@@ -161,28 +181,35 @@ public class OrigamiPaperController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Pushes the current vertex and normal arrays into both meshes.
+    /// Back-face vertices are offset slightly along the inverted front normal
+    /// to prevent Z-fighting along fold creases at any angle.
+    /// Normals are tracked analytically — NOT recalculated — so that a
+    /// 180° fold correctly inverts the normal and drives the right material.
+    /// </summary>
     private void ApplyVerticesToMesh()
     {
         _frontMesh.vertices = _currentVertices;
-        _frontMesh.RecalculateNormals();
+        _frontMesh.normals  = _currentNormals;
         _frontMesh.RecalculateBounds();
 
         if (_backMesh != null)
         {
-            // Push back-mesh vertices slightly inward along the inverted front normal
-            // to eliminate Z-fighting at all angles, including along the fold crease.
-            Vector3[] frontNormals = _frontMesh.normals;
-            Vector3[] backVerts = new Vector3[_currentVertices.Length];
-            Vector3[] backNormals = new Vector3[frontNormals.Length];
+            const float kOffset = 0.002f;
+
+            Vector3[] backVerts   = new Vector3[_currentVertices.Length];
+            Vector3[] backNormals = new Vector3[_currentNormals.Length];
 
             for (int i = 0; i < _currentVertices.Length; i++)
             {
-                backVerts[i] = _currentVertices[i] - frontNormals[i] * 0.002f;
-                backNormals[i] = -frontNormals[i];
+                // Push the back vertex inward (away from the front surface).
+                backVerts[i]   = _currentVertices[i] - _currentNormals[i] * kOffset;
+                backNormals[i] = -_currentNormals[i];
             }
 
             _backMesh.vertices = backVerts;
-            _backMesh.normals = backNormals;
+            _backMesh.normals  = backNormals;
             _backMesh.RecalculateBounds();
         }
     }
@@ -206,16 +233,15 @@ public class OrigamiPaperController : MonoBehaviour
     {
         _isAnimating = true;
 
-        // Snapshot of fully-accumulated vertex positions at the start of this animation.
+        // Snapshot of fully-accumulated vertex positions and normals at fold start.
         Vector3[] preFoldVertices = (Vector3[])_currentVertices.Clone();
+        Vector3[] preFoldNormals  = (Vector3[])_currentNormals.Clone();
 
-        // Derive "flat geometry" positions by stripping out the accumulated height offset.
-        // This allows the rotation to work on the pure geometric shape, while height
-        // accumulates independently — so fold-within-fold vertices correctly get 2× lift.
+        // Derive "flat geometry" positions by stripping the accumulated height offset.
         Vector3[] preFlatVerts = new Vector3[preFoldVertices.Length];
         for (int i = 0; i < preFlatVerts.Length; i++)
         {
-            preFlatVerts[i] = preFoldVertices[i];
+            preFlatVerts[i]   = preFoldVertices[i];
             preFlatVerts[i].y -= _vertexHeightOffset[i];
         }
 
@@ -224,7 +250,7 @@ public class OrigamiPaperController : MonoBehaviour
         Vector3 axisDir   = (lineEnd - lineStart).normalized;
 
         float targetAngle = forward ? step.foldAngle : -step.foldAngle;
-        int[] foldIndices = ClassifyVertices(_baseVertices, step, transform);
+        int[] foldIndices = ClassifyVertices(_baseVertices, step);
 
         float thickness  = model != null ? model.paperThickness : 0f;
         float heightSign = forward ? 1f : -1f;
@@ -239,42 +265,53 @@ public class OrigamiPaperController : MonoBehaviour
             float smoothT = Mathf.SmoothStep(0f, 1f, t);
             float angle   = Mathf.Lerp(0f, targetAngle, smoothT);
 
-            Quaternion rotation     = Quaternion.AngleAxis(angle, axisDir);
-            float      heightDelta  = thickness * smoothT * heightSign;
+            Quaternion rotation    = Quaternion.AngleAxis(angle, axisDir);
+            float      heightDelta = thickness * smoothT * heightSign;
 
             Array.Copy(preFoldVertices, _currentVertices, preFoldVertices.Length);
+            Array.Copy(preFoldNormals,  _currentNormals,  preFoldNormals.Length);
 
             foreach (int idx in foldIndices)
             {
-                // Rotate the flat geometry position (height stripped out).
+                // Rotate the flat geometry position.
                 Vector3 worldFlat = transform.TransformPoint(preFlatVerts[idx]);
                 Vector3 rotated   = rotation * (worldFlat - lineStart);
                 Vector3 localPos  = transform.InverseTransformPoint(lineStart + rotated);
 
-                // Re-add the existing accumulated height PLUS the in-progress height gain.
-                localPos.y += _vertexHeightOffset[idx] + heightDelta;
-                _currentVertices[idx] = localPos;
+                // Re-add accumulated height plus in-progress gain.
+                localPos.y             += _vertexHeightOffset[idx] + heightDelta;
+                _currentVertices[idx]   = localPos;
+
+                // Rotate normal analytically (world-space rotation, then back to local).
+                Vector3 worldNormal    = transform.TransformDirection(preFoldNormals[idx]);
+                Vector3 rotatedNormal  = rotation * worldNormal;
+                _currentNormals[idx]   = transform.InverseTransformDirection(rotatedNormal);
             }
 
             ApplyVerticesToMesh();
             yield return null;
         }
 
-        // Commit the permanent height change for this fold step.
+        // Commit permanent height change.
         float committedDelta = thickness * heightSign;
         foreach (int idx in foldIndices)
             _vertexHeightOffset[idx] += committedDelta;
 
-        // Snap to the exact final positions using the now-committed heights.
+        // Snap to exact final positions and normals.
         Quaternion finalRotation = Quaternion.AngleAxis(targetAngle, axisDir);
         Array.Copy(preFoldVertices, _currentVertices, preFoldVertices.Length);
+        Array.Copy(preFoldNormals,  _currentNormals,  preFoldNormals.Length);
+
         foreach (int idx in foldIndices)
         {
             Vector3 worldFlat = transform.TransformPoint(preFlatVerts[idx]);
             Vector3 rotated   = finalRotation * (worldFlat - lineStart);
             Vector3 localPos  = transform.InverseTransformPoint(lineStart + rotated);
-            localPos.y += _vertexHeightOffset[idx];
-            _currentVertices[idx] = localPos;
+            localPos.y            += _vertexHeightOffset[idx];
+            _currentVertices[idx]  = localPos;
+
+            Vector3 worldNormal   = transform.TransformDirection(preFoldNormals[idx]);
+            _currentNormals[idx]  = transform.InverseTransformDirection(finalRotation * worldNormal);
         }
 
         ApplyVerticesToMesh();
@@ -292,21 +329,20 @@ public class OrigamiPaperController : MonoBehaviour
     /// defined by <paramref name="step"/>.
     /// Classification is done in the XZ plane using the base (flat) vertex positions.
     /// </summary>
-    private static int[] ClassifyVertices(Vector3[] baseVerts, OrigamiStep step, Transform paperTransform)
+    private static int[] ClassifyVertices(Vector3[] baseVerts, OrigamiStep step)
     {
         Vector2 lineStart = step.foldLineStart;
-        Vector2 lineEnd = step.foldLineEnd;
-        Vector2 lineDir = (lineEnd - lineStart).normalized;
+        Vector2 lineEnd   = step.foldLineEnd;
+        Vector2 lineDir   = (lineEnd - lineStart).normalized;
 
-        System.Collections.Generic.List<int> result = new System.Collections.Generic.List<int>();
+        List<int> result = new List<int>();
 
         for (int i = 0; i < baseVerts.Length; i++)
         {
-            // Work in paper-local XZ space.
-            Vector2 v = new Vector2(baseVerts[i].x, baseVerts[i].z);
+            Vector2 v        = new Vector2(baseVerts[i].x, baseVerts[i].z);
             Vector2 toVertex = v - lineStart;
 
-            // 2D cross product (Y component of 3D cross).
+            // 2D cross product gives signed area; sign determines which side of the line.
             float cross = lineDir.x * toVertex.y - lineDir.y * toVertex.x;
 
             bool select = step.regionMode switch
