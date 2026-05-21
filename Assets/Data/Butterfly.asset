@@ -1,0 +1,103 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5c421a18b86054a498f9fd5484dbf660, type: 3}
+  m_Name: Butterfly
+  m_EditorClassIdentifier: Assembly-CSharp::OrigamiModel
+  modelName: Butterfly
+  paperWidth: 2.5
+  paperHeight: 2.5
+  subdivisionsX: 40
+  subdivisionsY: 40
+  paperThickness: 0.004
+  frontMaterial: {fileID: 2100000, guid: b37fe92b9fc5b534dadfc57f89e1240a, type: 2}
+  backMaterial: {fileID: 2100000, guid: 8c9039899b17c0f40916aeccb8559ae6, type: 2}
+  steps:
+  - instructionText: Start with a flat square sheet of paper.
+    foldLineStart: {x: -1.25, y: 0}
+    foldLineEnd: {x: 1.25, y: 0}
+    foldAngle: 0
+    duration: 0.4
+    regionMode: 2
+    guideLine:
+      visible: 1
+      width: 0.02
+    arrow:
+      visible: 0
+      arrowOrigin: {x: 0, y: 0}
+      arrowDirection: {x: 0, y: 0}
+    hasCameraOverride: 0
+    cameraPosition: {x: 0, y: 0, z: 0}
+    cameraRotation: {x: 0, y: 0, z: 0, w: 1}
+  - instructionText: Fold the top half down to create the body base.
+    foldLineStart: {x: -1.25, y: 0}
+    foldLineEnd: {x: 1.25, y: 0}
+    foldAngle: 180
+    duration: 1
+    regionMode: 2
+    guideLine:
+      visible: 1
+      width: 0.02
+    arrow:
+      visible: 1
+      arrowOrigin: {x: 0, y: 0.7}
+      arrowDirection: {x: 0, y: -1}
+    hasCameraOverride: 0
+    cameraPosition: {x: 0, y: 0, z: 0}
+    cameraRotation: {x: 0, y: 0, z: 0, w: 1}
+  - instructionText: Fold the left wing upward.
+    foldLineStart: {x: -1.25, y: 0}
+    foldLineEnd: {x: 0, y: -1.25}
+    foldAngle: 90
+    duration: 0.9
+    regionMode: 5
+    guideLine:
+      visible: 1
+      width: 0.02
+    arrow:
+      visible: 1
+      arrowOrigin: {x: -0.8, y: -0.7}
+      arrowDirection: {x: 0.5, y: 0.5}
+    hasCameraOverride: 0
+    cameraPosition: {x: 0, y: 0, z: 0}
+    cameraRotation: {x: 0, y: 0, z: 0, w: 1}
+  - instructionText: Fold the right wing upward.
+    foldLineStart: {x: 1.25, y: 0}
+    foldLineEnd: {x: 0, y: -1.25}
+    foldAngle: 90
+    duration: 0.9
+    regionMode: 4
+    guideLine:
+      visible: 1
+      width: 0.02
+    arrow:
+      visible: 1
+      arrowOrigin: {x: 0.8, y: -0.7}
+      arrowDirection: {x: -0.5, y: 0.5}
+    hasCameraOverride: 0
+    cameraPosition: {x: 0, y: 0, z: 0}
+    cameraRotation: {x: 0, y: 0, z: 0, w: 1}
+  - instructionText: Your butterfly is complete! Open the wings gently.
+    foldLineStart: {x: -1.25, y: 0}
+    foldLineEnd: {x: 1.25, y: 0}
+    foldAngle: 0
+    duration: 0.4
+    regionMode: 2
+    guideLine:
+      visible: 0
+      width: 0.02
+    arrow:
+      visible: 0
+      arrowOrigin: {x: 0, y: 0}
+      arrowDirection: {x: 0, y: 0}
+    hasCameraOverride: 0
+    cameraPosition: {x: 0, y: 0, z: 0}
+    cameraRotation: {x: 0, y: 0, z: 0, w: 1}
