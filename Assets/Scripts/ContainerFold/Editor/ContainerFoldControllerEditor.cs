@@ -25,6 +25,8 @@ public class ContainerFoldControllerEditor : Editor
     private SerializedProperty _model;
     private SerializedProperty _paperRoot;
     private SerializedProperty _steps;
+    private SerializedProperty _stateRoots;
+    private SerializedProperty _onSequenceComplete;
 
     private ReorderableList _stepList;
     private int _expandedStep = -1;
@@ -35,9 +37,11 @@ public class ContainerFoldControllerEditor : Editor
 
     private void OnEnable()
     {
-        _model     = serializedObject.FindProperty(nameof(ContainerFoldController.model));
-        _paperRoot = serializedObject.FindProperty(nameof(ContainerFoldController.paperRoot));
-        _steps     = serializedObject.FindProperty(nameof(ContainerFoldController.steps));
+        _model              = serializedObject.FindProperty(nameof(ContainerFoldController.model));
+        _paperRoot          = serializedObject.FindProperty(nameof(ContainerFoldController.paperRoot));
+        _steps              = serializedObject.FindProperty(nameof(ContainerFoldController.steps));
+        _stateRoots         = serializedObject.FindProperty(nameof(ContainerFoldController.stateRoots));
+        _onSequenceComplete = serializedObject.FindProperty(nameof(ContainerFoldController.onSequenceComplete));
 
         BuildStepList();
     }
@@ -62,6 +66,13 @@ public class ContainerFoldControllerEditor : Editor
             using (new EditorGUI.DisabledScope(true))
                 EditorGUILayout.FloatField("  Paper Thickness", modelAsset.paperThickness);
         }
+
+        EditorGUILayout.Space(6f);
+
+        // ── State Configuration ───────────────────────────────────────────
+        EditorGUILayout.LabelField("State Configuration", EditorStyles.boldLabel);
+        EditorGUILayout.PropertyField(_stateRoots, new GUIContent("All State Meshes"), true);
+        EditorGUILayout.PropertyField(_onSequenceComplete, new GUIContent("On Sequence Complete"));
 
         EditorGUILayout.Space(6f);
 
@@ -131,8 +142,8 @@ public class ContainerFoldControllerEditor : Editor
 
     private float GetStepHeight(int index)
     {
-        // Label + duration + movement count badge.
-        float height = (LineHeight + Padding) * 3f;
+        // Label + duration + stateRoot + autoAdvance + movement count badge.
+        float height = (LineHeight + Padding) * 5f;
 
         if (_expandedStep != index) return height;
 
@@ -176,6 +187,15 @@ public class ContainerFoldControllerEditor : Editor
         duration.floatValue = EditorGUI.FloatField(new Rect(x + LabelWidth, y, w - LabelWidth, LineHeight),
             duration.floatValue);
         y += LineHeight + Padding;
+
+        // ── State Mesh ────────────────────────────────────────────────────
+        SerializedProperty stateRoot   = step.FindPropertyRelative("stateRoot");
+        SerializedProperty autoAdvance = step.FindPropertyRelative("autoAdvance");
+
+        DrawField(ref y, x, w, "State Mesh", stateRoot);
+
+        // ── Auto Advance ──────────────────────────────────────────────────
+        DrawField(ref y, x, w, "Auto Advance", autoAdvance);
 
         // ── Movement count badge ──────────────────────────────────────────
         EditorGUI.LabelField(new Rect(x, y, w, LineHeight),
