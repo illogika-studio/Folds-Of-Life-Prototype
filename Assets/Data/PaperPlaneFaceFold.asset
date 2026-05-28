@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93f5c95695496544da5026894154cc3a, type: 3}
+  m_Name: PaperPlaneFaceFold
+  m_EditorClassIdentifier: Assembly-CSharp::FaceFoldModel
+  sourceMesh: {fileID: 7450741763379908841, guid: ef4f3d3cf7aba124f801d343d6479ca8, type: 3}
+  frontMaterial: {fileID: 2100000, guid: b37fe92b9fc5b534dadfc57f89e1240a, type: 2}
+  backMaterial: {fileID: 2100000, guid: 8c9039899b17c0f40916aeccb8559ae6, type: 2}
+  paperThickness: 0.02
+  steps:
+  - label: Fold faces 1 & 2 inward over face 4
+    faceIndices: 0100000002000000
+    axisStart: {x: -0.5, y: 0}
+    axisEnd: {x: 0.5, y: 0}
+    foldAngle: 180
+    duration: 0.6
+  - label: Fold faces 9 & 10 inward
+    faceIndices: 090000000a000000
+    axisStart: {x: -0.5, y: 0}
+    axisEnd: {x: 0.5, y: 0}
+    foldAngle: 180
+    duration: 0.6
